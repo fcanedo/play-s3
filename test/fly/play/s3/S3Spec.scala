@@ -1,42 +1,26 @@
 package fly.play.s3
 
-import java.io.File
-import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.concurrent.duration.DurationInt
-import org.specs2.mutable.Before
+import scala.concurrent.{Await, Future}
 import org.specs2.mutable.Specification
 import fly.play.aws.auth.SimpleAwsCredentials
-import fly.play.aws.xml.AwsError
 import play.api.http.HeaderNames
 import play.api.libs.ws.WS
-import play.api.test.FakeApplication
-import org.specs2.execute.AsResult
-import org.specs2.specification.Example
-import play.api.test.FakeApplication
 import play.api.test.Helpers._
-import fly.play.aws.auth.AwsCredentials
 import scala.util.Success
 import scala.util.Failure
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
+import org.specs2.time.NoTimeConversions
 
-class S3Spec extends Specification {
+class S3Spec extends Specification with TestUtils with NoTimeConversions with S3LikeSpec {
 
   sequential
 
-  val testBucketName = "s3playlibrary.rhinofly.net"
+  def s3WithCredentials: S3 = S3.fromConfig
 
-  def fakeApplication(additionalConfiguration: Map[String, _ <: Any] = Map.empty) =
-    FakeApplication(new File("./test"), additionalConfiguration = additionalConfiguration)
 
-  implicit class InAppExample(s: String) {
-    def inApp[T: AsResult](r: => T): Example =
-      s in running(fakeApplication()) {
-        r
-      }
-  }
+  override def testBucket = S3(testBucketName)
 
-  def s3WithCredentials = S3.fromConfig
+  override def getS3Like = S3
 
   "S3" should {
 
@@ -191,16 +175,26 @@ class S3Spec extends Specification {
     }
 
     var url = ""
+    val fileName = "privateREADME.txt"
 
     "be able to add a file with private ACL and create a url for it" inApp {
 
-      val fileName = "privateREADME.txt"
-      url = testBucket.url(fileName, 86400)
+      url = testBucket.url(fileName, 24.hours.toSeconds)
       val result = testBucket + BucketFile(fileName, "text/plain", """
 		        This is a bucket used for testing the S3 module of play
 		        """.getBytes, Some(AUTHENTICATED_READ), None)
 
       Await.result(result, Duration.Inf) must not(throwA[Throwable])
+    }
+
+    "be able to create a url with fast expiration time and get a timeout" inApp {
+
+      val url = testBucket.url(fileName, -60)
+
+      val result = WS.url(url).get
+
+      val value = await(result)
+      value.status must_== 403
     }
 
     "be able to retrieve the private file using the generated url" inApp {

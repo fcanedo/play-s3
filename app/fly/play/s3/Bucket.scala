@@ -18,7 +18,7 @@ import scala.concurrent.Promise
 case class Bucket(
   name: String,
   delimiter: Option[String] = Some("/"),
-  s3: S3) {
+  s3: S3) extends BucketLike {
 
   /**
    * Creates an authenticated url for an item with the given name
@@ -66,10 +66,6 @@ case class Bucket(
     s3.get(name, None, Some(prefix), delimiter) map listResponse
 
   /**
-   * @see add
-   */
-  def + = add _
-  /**
    * Adds a file to this bucket
    *
    * @param bucketFile	A representation of the file
@@ -77,10 +73,6 @@ case class Bucket(
   def add(bucketFile: BucketFile): Future[Unit] =
     s3.put(name, bucketFile) map unitResponse
 
-  /**
-   * @see remove
-   */
-  def - = remove _
   /**
    * Removes a file from this bucket
    *

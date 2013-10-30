@@ -17,8 +17,10 @@ import scala.collection.JavaConversions
 /**
  * Amazon Simple Storage Service
  */
-object S3 {
-  
+object S3 extends S3Like {
+
+  val MINIMAL_PART_SIZE = 5 * 1024 * 1024
+
   def config = play.api.Play.current.configuration
   
   def https = config getBoolean "s3.https" getOrElse false
